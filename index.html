@@ -1,92 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Galaxia Cloud Gaming</title>
-  <style>
-    /* 🌈 Styles */
-    body {
-      font-family: Arial, sans-serif;
-      background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
-      color: white;
-      text-align: center;
-      margin: 0;
-      padding: 0;
-    }
-
-    h1 {
-      margin-top: 50px;
-      font-size: 3em;
-    }
-
-    p {
-      font-size: 1.2em;
-      margin-bottom: 40px;
-    }
-
-    .game-card {
-      background: rgba(255,255,255,0.1);
-      padding: 20px;
-      margin: 20px auto;
-      width: 300px;
-      border-radius: 15px;
-      transition: transform 0.2s;
-    }
-
-    .game-card:hover {
-      transform: scale(1.05);
-    }
-
-    button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 10px;
-      background-color: #ff6f61;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-
-    button:hover {
-      background-color: #ff3b2e;
-    }
-
-    /* Optional: Footer */
-    footer {
-      margin-top: 50px;
-      font-size: 0.8em;
-      color: #ccc;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Galaxia WebRTC Cloud Gaming</title>
+<style>
+  body {
+    background: #0f2027;
+    background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+  }
+  h1 { margin-top: 50px; font-size: 3em; }
+  p { font-size: 1.2em; margin-bottom: 40px; }
+  video {
+    width: 80%;
+    max-width: 900px;
+    border-radius: 10px;
+    border: 2px solid #ff6f61;
+  }
+  button {
+    padding: 12px 25px;
+    border: none;
+    border-radius: 10px;
+    background-color: #ff6f61;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    margin-top: 20px;
+    transition: 0.2s;
+  }
+  button:hover { background-color: #ff3b2e; }
+</style>
 </head>
 <body>
-  <div class="container">
-    <h1>Galaxia Cloud Gaming</h1>
-    <p>Click a game to instantly connect to my PC via Parsec!</p>
+<h1>Galaxia Cloud Gaming</h1>
+<p>Connect to your PC and play in-browser!</p>
 
-    <div class="game-card">
-      <h2>Minecraft</h2>
-      <button onclick="launchGame('https://parsec.gg/g/39kiRTksabQJ5RFTkmhraVxwVRO/e911e31e/')">Play</button>
-    </div>
+<video id="gameStream" autoplay playsinline></video>
 
-    <div class="game-card">
-      <h2>Roblox</h2>
-      <button onclick="launchGame('https://parsec.gg/g/39kiRTksabQJ5RFTkmhraVxwVRO/e911e31e/')">Play</button>
-    </div>
+<button id="connectBtn">Connect</button>
 
-    <div class="game-card">
-      <h2>Fortnite</h2>
-      <button onclick="launchGame('https://parsec.gg/g/39kiRTksabQJ5RFTkmhraVxwVRO/e911e31e/')">Play</button>
-    </div>
-  </div>
+<script>
+const pc = new RTCPeerConnection();
 
-  <footer>Galaxia Cloud Launcher | Powered by Parsec</footer>
+// Show remote stream
+pc.ontrack = (event) => {
+  const video = document.getElementById('gameStream');
+  video.srcObject = event.streams[0];
+};
 
-  <script>
-    function launchGame(url) {
-      window.location.href = url; // opens Parsec
-    }
-  </script>
+// Setup WebSocket signaling
+// REPLACE with your Node.js server URL
+const ws = new WebSocket('wss://YOUR_SIGNALLING_SERVER_URL');
+ws.onmessage = async (msg) => {
+  const data = JSON.parse(msg.data);
+  if(data.answer) await pc.setRemoteDescription(data.answer);
+  if(data.ice) await pc.addIceCandidate(data.ice);
+};
+
+// Send ICE candidates to server
+pc.onicecandidate = (event) => {
+  if(event.candidate) ws.send(JSON.stringify({ ice: event.candidate }));
+};
+
+// Connect button
+document.getElementById('connectBtn').onclick = async () => {
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  ws.send(JSON.stringify({ offer }));
+};
+</script>
 </body>
 </html>
